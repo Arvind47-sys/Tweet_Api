@@ -14,7 +14,7 @@ namespace Tweet_Api.Extensions
         {
             services.AddDbContext<DataContext>(options =>
             {
-                options.UseSqlServer(config.GetConnectionString("DefaultConnection"));
+                options.UseInMemoryDatabase("TweetAppDB");
             });
             services.AddAutoMapper(typeof(AutoMapperProfiles).Assembly);
             services.AddScoped<ITokenService, TokenService>()

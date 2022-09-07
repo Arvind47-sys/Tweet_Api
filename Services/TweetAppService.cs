@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using KafkaNet;
 using KafkaNet.Model;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -16,12 +17,14 @@ namespace Tweet_Api.Services
     {
         private readonly IMapper _mapper;
         private readonly ITweetRepository _tweetRepository;
+        private readonly IConfiguration _config;
 
         public TweetAppService(IUserRepository userRepository, IMapper mapper,
-            ITweetRepository tweetRepository)
+            ITweetRepository tweetRepository, IConfiguration config)
         {
             _mapper = mapper;
             _tweetRepository = tweetRepository;
+            _config = config;
         }
 
         public async Task<bool> DeleteTweet(int tweetId)
@@ -102,8 +105,8 @@ namespace Tweet_Api.Services
         // Sending posted tweet to Apache Kafka
         private void sendMessageToKafkaTopic(string payload)
         {
-            Uri uri = new Uri("http://localhost:9092"); // move to config
-            string topic = "tweet";
+            Uri uri = new Uri(_config["KafkaEndPoint"]);
+            string topic = _config["KafkaTopicName"];
             var sendMessage = new Thread(() =>
             {
                 KafkaNet.Protocol.Message msg = new KafkaNet.Protocol.Message(payload);
