@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using KafkaNet;
 using KafkaNet.Model;
+using log4net;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using System.Threading.Tasks;
 using Tweet_Api.DTOs;
 using Tweet_Api.Entities;
 using Tweet_Api.Interfaces;
+using Tweet_Api.Logger;
 using Tweet_Api.Repository.IRepository;
 
 namespace Tweet_Api.Services
@@ -18,6 +20,7 @@ namespace Tweet_Api.Services
         private readonly IMapper _mapper;
         private readonly ITweetRepository _tweetRepository;
         private readonly IConfiguration _config;
+        private ILog logger;
 
         public TweetAppService(IUserRepository userRepository, IMapper mapper,
             ITweetRepository tweetRepository, IConfiguration config)
@@ -25,6 +28,7 @@ namespace Tweet_Api.Services
             _mapper = mapper;
             _tweetRepository = tweetRepository;
             _config = config;
+            logger = LogManager.GetLogger(typeof(LogFilterAttribute));
         }
 
         public async Task<bool> DeleteTweet(int tweetId)
@@ -113,7 +117,14 @@ namespace Tweet_Api.Services
                 var options = new KafkaOptions(uri);
                 var router = new BrokerRouter(options);
                 var client = new Producer(router);
-                client.SendMessageAsync(topic, new List<KafkaNet.Protocol.Message> { msg }).Wait();
+                try
+                {
+                    client.SendMessageAsync(topic, new List<KafkaNet.Protocol.Message> { msg }).Wait();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex.Message + " - " + ex.StackTrace);
+                }
             });
             sendMessage.Start();
         }
