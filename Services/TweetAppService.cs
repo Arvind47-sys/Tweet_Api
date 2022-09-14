@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Tweet_Api.DTOs;
 using Tweet_Api.Entities;
+using Tweet_Api.EventHub;
 using Tweet_Api.Interfaces;
 using Tweet_Api.Logger;
 using Tweet_Api.Repository.IRepository;
@@ -21,14 +22,16 @@ namespace Tweet_Api.Services
         private readonly ITweetRepository _tweetRepository;
         private readonly IConfiguration _config;
         private ILog logger;
+        private readonly IProduceMessages _produceMessages;
 
         public TweetAppService(IUserRepository userRepository, IMapper mapper,
-            ITweetRepository tweetRepository, IConfiguration config)
+            ITweetRepository tweetRepository, IConfiguration config, IProduceMessages produceMessages)
         {
             _mapper = mapper;
             _tweetRepository = tweetRepository;
             _config = config;
             logger = LogManager.GetLogger(typeof(LogFilterAttribute));
+            _produceMessages = produceMessages;
         }
 
         public async Task<bool> DeleteTweet(int tweetId)
@@ -99,19 +102,22 @@ namespace Tweet_Api.Services
                 result = await _tweetRepository.PostNewTweet(tweet);
                 if (result)
                 {
-                    var payLoad = $"Tag: {tweet.Tag}\tBody: {tweet.Body}";
-                    sendMessageToKafkaTopic(payLoad);
+                    var payLoad = $"Tag: {tweet.Tag}\tBody: {tweet.Body}\tUsername: {user.Username}";
+                    SendMessageToKafkaTopic(payLoad);
+
+                    //Send Message to Azure Event Hub for logging
+                    await _produceMessages.ProduceAsync(payLoad);
                 }
             }
             return result;
         }
 
-        // Sending posted tweet to Apache Kafka
-        private void sendMessageToKafkaTopic(string payload)
+        // Sending posted tweet to Apache Kafka running in docker container for logging
+        private void SendMessageToKafkaTopic(string payload)
         {
             Uri uri = new Uri(_config["KafkaEndPoint"]);
             string topic = _config["KafkaTopicName"];
-            var sendMessage = new Thread(() =>
+            var sendMessage = new Thread(async () =>
             {
                 KafkaNet.Protocol.Message msg = new KafkaNet.Protocol.Message(payload);
                 var options = new KafkaOptions(uri);
@@ -124,6 +130,8 @@ namespace Tweet_Api.Services
                 catch (Exception ex)
                 {
                     logger.Error(ex.Message + " - " + ex.StackTrace);
+                    // Sending custom exception to Azure Event Hub
+                    await _produceMessages.ProduceAsync(ex.Message + " - " + ex.StackTrace);
                 }
             });
             sendMessage.Start();

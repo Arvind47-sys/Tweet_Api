@@ -14,11 +14,13 @@ namespace Tweet_Api.Extensions
         {
             services.AddDbContext<DataContext>(options =>
             {
-                options.UseInMemoryDatabase("TweetAppDB");
+                options.UseSqlServer(config.GetConnectionString("DefaultConnection"));
             });
             services.AddAutoMapper(typeof(AutoMapperProfiles).Assembly);
             services.AddScoped<ITokenService, TokenService>()
                     .AddScoped<ITweetAppService, TweetAppService>();
+
+            services.BuildServiceProvider().GetService<DataContext>().Database.Migrate();
 
             return services;
         }

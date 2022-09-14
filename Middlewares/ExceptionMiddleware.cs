@@ -2,12 +2,11 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Tweet_Api.Errors;
+using Tweet_Api.EventHub;
 
 namespace Tweet_Api.Middlewares
 {
@@ -15,15 +14,16 @@ namespace Tweet_Api.Middlewares
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<ExceptionMiddleware> _logger;
-
         private readonly IHostEnvironment _env;
+        private readonly IProduceMessages _produceMessages;
 
         public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger,
-            IHostEnvironment env)
+            IHostEnvironment env, IProduceMessages produceMessages)
         {
             _next = next;
             _logger = logger;
             _env = env;
+            _produceMessages = produceMessages;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -41,6 +41,9 @@ namespace Tweet_Api.Middlewares
                 var response = _env.IsDevelopment()
                     ? new ApiException(context.Response.StatusCode, ex.Message, ex.StackTrace?.ToString())
                     : new ApiException(context.Response.StatusCode, "Internal Server Error");
+
+                // Logging Exception information in Azure Event Hub
+                await _produceMessages.ProduceAsync(context.Response.StatusCode + ex.Message + ex.StackTrace?.ToString());
 
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 

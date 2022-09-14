@@ -6,8 +6,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using Prometheus;
 using System.Collections.Generic;
+using Tweet_Api.EventHub;
 using Tweet_Api.Extensions;
 using Tweet_Api.Logger;
+using Tweet_Api.Middlewares;
 
 namespace Tweet_Api
 {
@@ -58,6 +60,8 @@ namespace Tweet_Api
             services.AddIdentityServices(_config);
             services.AddRepositoryServices();
             services.AddControllersWithViews(p => p.Filters.Add(new LogFilterAttribute()));
+            services.AddSingleton(_config.GetSection("EventHub"));
+            services.AddSingleton(typeof(IProduceMessages), typeof(ProduceMessages));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -74,11 +78,13 @@ namespace Tweet_Api
 
             app.UseRequestMiddleware();
 
+            app.UseMiddleware<ExceptionMiddleware>();
+
             app.UseHttpsRedirection();
 
             app.UseRouting();
 
-            app.UseCors(x => x.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:4200"));
+            app.UseCors(x => x.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
 
             app.UseAuthentication();
 

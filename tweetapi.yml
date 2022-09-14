@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: tweetapi
-          image: tweetappimagesacr.azurecr.io/tweetapi:v3
+          image: tweetappimagesacr.azurecr.io/tweetapi:v2
           ports:
             - containerPort: 8080
           imagePullPolicy: Always
